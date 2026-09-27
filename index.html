@@ -1,0 +1,547 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EasyLoan CRM - Cloud Pro Edition</title>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    
+    <!-- 100% REAL FIREBASE CLOUD SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: { sans: ['Plus Jakarta Sans', 'sans-serif'] },
+                    colors: { brandBeige: '#d4af37', brandBeigeDark: '#b5952f', brandBeigeLight: '#f9f6ef', bgWhite: '#ffffff', bgOffWhite: '#faf9f6', textDark: '#1a1a1a', textMuted: '#6b6b6b', cardBorder: '#e5e5e5' },
+                    boxShadow: { 'premium': '0 4px 20px -2px rgba(212, 175, 55, 0.1)' }
+                }
+            }
+        }
+    </script>
+    
+    <style>
+        .fade-in { animation: fadeIn 0.4s cubic-bezier(0.4, 0, 0.2, 1); }
+        .slide-in-right { animation: slideInRight 0.3s ease-out forwards; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(15px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes slideInRight { from { opacity: 0; transform: translateX(100%); } to { opacity: 1; transform: translateX(0); } }
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: #faf9f6; }
+        ::-webkit-scrollbar-thumb { background: #d4af37; border-radius: 10px; }
+        input[type=number]::-webkit-inner-spin-button, input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+        .modal-backdrop { backdrop-filter: blur(4px); }
+    </style>
+</head>
+<body class="bg-bgOffWhite text-textDark font-sans h-screen overflow-hidden selection:bg-brandBeige selection:text-white" onload="initSystem()">
+
+    <!-- Toast Notification -->
+    <div id="toast-container" class="fixed top-5 right-5 z-[100] flex flex-col gap-3"></div>
+
+    <!-- 🔒 APP LOCK SCREEN (PIN) -->
+    <div id="pin-lock-screen" class="hidden fixed inset-0 bg-textDark z-[300] flex-col items-center justify-center p-4 transition-all">
+        <div class="bg-bgWhite p-10 rounded-[2rem] shadow-2xl max-w-sm w-full text-center relative overflow-hidden">
+            <div class="w-20 h-20 bg-brandBeigeLight text-brandBeige rounded-full flex items-center justify-center text-3xl mx-auto mb-6"><i class="fas fa-lock"></i></div>
+            <h2 class="text-2xl font-extrabold text-textDark mb-2">App Locked</h2>
+            <p class="text-textMuted font-bold text-sm mb-6">Enter your security PIN</p>
+            <input type="password" id="pin-input" class="w-full bg-bgOffWhite border border-cardBorder rounded-xl p-4 text-center text-2xl font-extrabold tracking-[1em] focus:ring-2 focus:ring-brandBeige outline-none mb-6" maxlength="4" placeholder="••••">
+            <button onclick="unlockApp()" class="w-full bg-brandBeige hover:bg-brandBeigeDark text-white font-extrabold py-4 rounded-xl transition-all shadow-premium text-lg">Unlock App</button>
+        </div>
+    </div>
+
+    <!-- 🔐 GOOGLE LOGIN SCREEN -->
+    <div id="login-screen" class="fixed inset-0 bg-textDark z-[200] flex flex-col items-center justify-center p-4 transition-all hidden">
+        <div class="bg-bgWhite p-10 rounded-[2rem] shadow-2xl max-w-md w-full text-center relative overflow-hidden">
+            <div class="w-20 h-20 bg-textDark text-brandBeige rounded-2xl flex items-center justify-center text-4xl mx-auto mb-6 shadow-premium border border-brandBeige/30"><i class="fas fa-bolt"></i></div>
+            <h2 class="text-3xl font-extrabold text-textDark mb-2">EasyLoan Pro</h2>
+            <p class="text-textMuted font-bold text-sm mb-8">Secure Cloud CRM Dashboard</p>
+            <button onclick="loginWithGoogle()" class="w-full bg-bgOffWhite border-2 border-cardBorder hover:border-brandBeige text-textDark font-extrabold py-4 rounded-xl flex items-center justify-center gap-3 transition-all shadow-sm">
+                <i class="fab fa-google text-red-500 text-xl"></i>
+                Login with Google
+            </button>
+        </div>
+        <p class="text-gray-400 text-xs font-bold mt-6 uppercase tracking-widest"><i class="fas fa-cloud text-brandBeige mr-1"></i> End-To-End Cloud Encrypted</p>
+    </div>
+
+    <!-- MAIN CRM DASHBOARD -->
+    <div id="main-app" class="hidden h-screen w-full relative">
+        <div id="mobile-overlay" onclick="toggleMenu()" class="hidden fixed inset-0 bg-textDark/60 z-30 modal-backdrop transition-opacity md:hidden"></div>
+
+        <aside id="sidebar" class="fixed md:static inset-y-0 left-0 transform -translate-x-full md:translate-x-0 w-72 bg-bgWhite border-r border-cardBorder z-40 transition-transform duration-300 ease-in-out flex flex-col shadow-2xl md:shadow-none">
+            <div class="p-6 border-b border-cardBorder flex items-center gap-4 bg-brandBeigeLight/50">
+                <div class="w-12 h-12 rounded-2xl bg-textDark flex items-center justify-center text-brandBeige text-xl shadow-premium border border-brandBeige/30"><i class="fas fa-bolt"></i></div>
+                <div>
+                    <h1 class="text-2xl font-extrabold tracking-wide text-textDark">EasyLoan</h1>
+                    <p class="text-[10px] text-emerald-600 font-extrabold uppercase mt-0.5" id="sync-status"><i class="fas fa-cloud"></i> Syncing...</p>
+                </div>
+            </div>
+
+            <nav class="flex-1 px-4 py-8 space-y-2 overflow-y-auto">
+                <button onclick="switchTab('dashboard')" id="nav-dashboard" class="nav-btn w-full flex items-center gap-4 p-4 bg-brandBeige/15 text-brandBeigeDark font-bold rounded-2xl transition-all"><i class="fas fa-chart-pie text-lg w-6"></i> <span>Dashboard</span></button>
+                <button onclick="switchTab('add-customer')" id="nav-add-customer" class="nav-btn w-full flex items-center gap-4 p-4 text-textMuted hover:bg-bgOffWhite hover:text-textDark font-bold rounded-2xl transition-all"><i class="fas fa-user-plus text-lg w-6"></i> <span>New Client Setup</span></button>
+                <button onclick="switchTab('all-loans')" id="nav-all-loans" class="nav-btn w-full flex items-center gap-4 p-4 text-textMuted hover:bg-bgOffWhite hover:text-textDark font-bold rounded-2xl transition-all"><i class="fas fa-folder-open text-lg w-6"></i> <span>Client Records</span></button>
+                
+                <div class="pt-4 mt-4 border-t border-cardBorder">
+                    <button onclick="switchTab('settings-tab')" id="nav-settings-tab" class="nav-btn w-full flex items-center gap-4 p-4 text-textMuted hover:bg-bgOffWhite hover:text-textDark font-bold rounded-2xl transition-all mb-2"><i class="fas fa-cog text-lg w-6"></i> <span>Settings & Security</span></button>
+                    <button onclick="exportDataToExcel()" class="w-full flex items-center gap-4 p-4 text-emerald-600 hover:bg-emerald-50 font-extrabold rounded-2xl transition-all"><i class="fas fa-file-excel text-lg w-6"></i> <span>Excel Backup</span></button>
+                </div>
+            </nav>
+                        <!-- LEGAL & SUPPORT FOOTER -->
+            <div class="mt-auto p-4 border-t border-cardBorder bg-brandBeigeLight/30 text-center">
+                <p class="text-[10px] text-textMuted font-bold mb-2">© 2026 EasyLoan Pro. Cloud Secured.</p>
+                <div class="flex justify-center gap-3 text-[10px] text-brandBeigeDark font-extrabold uppercase tracking-wide">
+                    <button onclick="alert('Privacy Policy: All client data is end-to-end encrypted and stored securely on Google Cloud. We do not share data with third parties.')" class="hover:text-textDark transition">Policy</button>
+                    <span>|</span>
+                    <button onclick="alert('Disclaimer: This is a CRM software for record keeping only. We are not a registered NBFC.')" class="hover:text-textDark transition">Disclaimer</button>
+                    <span>|</span>
+                    <button onclick="alert('Contact Support: For any technical issues, email us at support@easyloancrm.com')" class="hover:text-textDark transition">Support</button>
+                </div>
+            </div>
+
+        </aside>
+<!-- Workspace -->
+        <main class="flex-1 flex flex-col h-screen overflow-hidden bg-bgOffWhite">
+            <header class="bg-bgWhite shadow-sm border-b border-cardBorder p-4 px-6 flex justify-between items-center z-10 sticky top-0">
+                <div class="flex items-center gap-5">
+                    <button onclick="toggleMenu()" class="md:hidden text-textDark text-2xl"><i class="fas fa-bars-staggered"></i></button>
+                    <h2 id="page-title" class="text-xl font-extrabold text-textDark">Dashboard Overview</h2>
+                </div>
+                <div class="flex items-center gap-4">
+                    <div class="hidden md:flex items-center gap-2 bg-brandBeigeLight px-3 py-1.5 rounded-lg border border-brandBeige/20"><i class="fas fa-clock text-brandBeigeDark text-xs"></i><span id="real-time-clock" class="text-xs font-bold text-brandBeigeDark">00:00</span></div>
+                    <img id="user-profile-img" src="https://ui-avatars.com/api/?name=Admin" class="w-10 h-10 rounded-full border-2 border-brandBeige shadow-sm">
+                </div>
+            </header>
+            
+            <div class="flex-1 overflow-y-auto p-4 md:p-8 relative">
+                
+                <!-- 1. DASHBOARD TAB -->
+                <section id="dashboard" class="tab-section block fade-in">
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+                        <div class="bg-bgWhite p-7 rounded-[2rem] shadow-premium border border-cardBorder flex flex-col justify-center"><div class="flex justify-between items-start mb-4"><p class="text-textMuted text-xs font-bold uppercase">Total Loan Disbursed</p><div class="w-10 h-10 rounded-xl bg-blue-50 text-blue-500 flex items-center justify-center"><i class="fas fa-money-check-alt"></i></div></div><h3 class="text-4xl font-extrabold text-textDark" id="stat-total-loan">₹0</h3></div>
+                        <div class="bg-bgWhite p-7 rounded-[2rem] shadow-premium border border-cardBorder flex flex-col justify-center"><div class="flex justify-between items-start mb-4"><p class="text-textMuted text-xs font-bold uppercase">Bakaya (Pending)</p><div class="w-10 h-10 rounded-xl bg-red-50 text-red-500 flex items-center justify-center"><i class="fas fa-exclamation-circle"></i></div></div><h3 class="text-4xl font-extrabold text-red-600" id="stat-bakaya">₹0</h3></div>
+                        <div class="bg-brandBeigeLight p-7 rounded-[2rem] shadow-premium border border-brandBeige/30 flex flex-col justify-center relative overflow-hidden"><div class="flex justify-between items-start mb-4 relative z-10"><p class="text-brandBeigeDark text-xs font-bold uppercase flex items-center gap-2"><span class="w-2 h-2 rounded-full bg-brandBeige animate-ping"></span> Live Aaj Ki EMI</p><div class="w-10 h-10 rounded-xl bg-brandBeige text-white flex items-center justify-center"><i class="fas fa-calendar-day"></i></div></div><h3 class="text-4xl font-extrabold text-brandBeigeDark relative z-10" id="stat-aaj-emi">₹0</h3></div>
+                        <div class="bg-bgWhite p-7 rounded-[2rem] shadow-premium border border-cardBorder flex flex-col justify-center"><div class="flex justify-between items-start mb-4"><p class="text-textMuted text-xs font-bold uppercase">EMI Collected (Paid)</p><div class="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-500 flex items-center justify-center"><i class="fas fa-wallet"></i></div></div><h3 class="text-4xl font-extrabold text-emerald-600" id="stat-collected">₹0</h3></div>
+                        <div class="bg-textDark p-7 rounded-[2rem] shadow-2xl flex flex-col justify-center relative overflow-hidden"><div class="absolute -right-5 -top-5 w-32 h-32 bg-brandBeige opacity-30 rounded-full blur-2xl"></div><div class="flex justify-between items-start mb-4 relative z-10"><p class="text-brandBeige text-xs font-bold uppercase">Total Profit Earned</p><div class="w-10 h-10 rounded-xl bg-brandBeige text-textDark flex items-center justify-center"><i class="fas fa-chart-line"></i></div></div><h3 class="text-4xl font-extrabold text-white relative z-10" id="stat-profit">₹0</h3></div>
+                        <div class="bg-bgWhite p-7 rounded-[2rem] shadow-premium border border-cardBorder flex flex-col justify-center"><div class="flex justify-between items-start mb-4"><p class="text-textMuted text-xs font-bold uppercase">Active Cases</p><div class="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-500 flex items-center justify-center"><i class="fas fa-users"></i></div></div><h3 class="text-4xl font-extrabold text-textDark" id="stat-cases">0</h3></div>
+                    </div>
+                </section>
+
+                <!-- 2. ADD CUSTOMER TAB -->
+                <section id="add-customer" class="tab-section hidden fade-in max-w-6xl mx-auto">
+                    <form id="loan-setup-form" onsubmit="processCustomer(event)" class="space-y-8 pb-10">
+                        <div class="bg-bgWhite rounded-[2rem] shadow-sm border border-cardBorder p-6 md:p-10 relative overflow-hidden">
+                            <div class="absolute top-0 left-0 w-2 h-full bg-brandBeige"></div>
+                            <div class="flex items-center gap-3 mb-8 border-b border-cardBorder pb-5">
+                                <div class="w-12 h-12 rounded-full bg-brandBeigeLight text-brandBeige flex items-center justify-center text-xl"><i class="fas fa-user-tie"></i></div>
+                                <div><h3 class="text-xl font-extrabold text-textDark">Client Profile</h3></div>
+                            </div>
+                            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                                <div><label class="block text-[11px] font-bold text-textMuted uppercase mb-2">Full Name</label><input type="text" id="c-name" required class="w-full bg-bgOffWhite border border-cardBorder rounded-xl p-4 font-extrabold"></div>
+                                <div><label class="block text-[11px] font-bold text-textMuted uppercase mb-2">Mobile Number</label><input type="tel" id="c-phone" required class="w-full bg-bgOffWhite border border-cardBorder rounded-xl p-4 font-extrabold" maxlength="10"></div>
+                                <div><label class="block text-[11px] font-bold text-textMuted uppercase mb-2">Address</label><input type="text" id="c-address" required class="w-full bg-bgOffWhite border border-cardBorder rounded-xl p-4 font-extrabold"></div>
+                            </div>
+                        </div>
+
+                        <div class="bg-bgWhite rounded-[2rem] shadow-sm border border-cardBorder p-6 md:p-10 relative overflow-hidden">
+                            <div class="absolute top-0 left-0 w-2 h-full bg-textDark"></div>
+                            <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+                                <div><label class="block text-[11px] font-bold text-textMuted uppercase mb-2">Billing Amount</label><input type="number" id="c-billing" required oninput="calculateEMI()" class="w-full bg-bgOffWhite border border-cardBorder rounded-xl p-4 font-extrabold text-lg" value="0"></div>
+                                <div><label class="block text-[11px] font-bold text-textMuted uppercase mb-2">Down Payment</label><input type="number" id="c-downpayment" required oninput="calculateEMI()" class="w-full bg-bgOffWhite border border-cardBorder rounded-xl p-4 font-extrabold text-lg" value="0"></div>
+                                <div><label class="block text-[11px] font-bold text-brandBeigeDark uppercase mb-2">File Charge / Flat Profit</label><input type="number" id="c-filecharge" required oninput="calculateEMI()" class="w-full bg-brandBeigeLight border border-brandBeige/30 rounded-xl p-4 font-extrabold text-brandBeigeDark text-lg" value="0"></div>
+                                <div><label class="block text-[11px] font-bold text-textMuted uppercase mb-2">Total EMI (Months)</label><input type="number" id="c-tenure" required oninput="calculateEMI()" class="w-full bg-bgOffWhite border border-cardBorder rounded-xl p-4 font-extrabold text-lg" value="1"></div>
+                                <div><label class="block text-[11px] font-bold text-textMuted uppercase mb-2">Loan Start Date</label><input type="date" id="c-date" required class="w-full bg-bgOffWhite border border-cardBorder rounded-xl p-4 font-extrabold text-sm"></div>
+                                <div class="col-span-3"><label class="block text-[11px] font-bold text-blue-600 uppercase mb-2">Principal Loan Given</label><input type="text" id="c-loan" readonly class="w-full bg-blue-50 border border-blue-200 rounded-xl p-4 font-extrabold text-blue-800 text-lg cursor-not-allowed" value="₹ 0"><input type="hidden" id="c-loan-raw" value="0"></div>
+                            </div>
+                            <div class="bg-textDark rounded-2xl p-6 md:p-8 grid grid-cols-3 gap-6 items-center shadow-2xl">
+                                <div><p class="text-[10px] font-bold text-brandBeige uppercase mb-1">Profit</p><p class="text-3xl font-extrabold text-white" id="display-profit">₹ 0</p><input type="hidden" id="calculated-profit" value="0"></div>
+                                <div class="border-l border-gray-700 pl-8"><p class="text-[10px] font-bold text-brandBeige uppercase mb-1">Bakaya</p><p class="text-3xl font-extrabold text-white" id="display-total">₹ 0</p><input type="hidden" id="calculated-total" value="0"></div>
+                                <div class="border-l border-gray-700 pl-8"><p class="text-[10px] font-bold text-emerald-400 uppercase mb-1">EMI / Month</p><p class="text-4xl font-extrabold text-emerald-400" id="display-emi">₹ 0</p></div>
+                            </div>
+                        </div>
+                        <button type="submit" class="w-full bg-brandBeige hover:bg-brandBeigeDark text-white font-extrabold py-5 rounded-2xl shadow-premium text-lg"><i class="fas fa-cloud-upload-alt mr-2"></i> Save Client to Cloud DB</button>
+                    </form>
+                </section>
+
+                <!-- 3. CLIENT RECORDS TAB -->
+                <section id="all-loans" class="tab-section hidden fade-in">
+                    <div class="bg-bgWhite rounded-[2rem] shadow-premium border border-cardBorder overflow-hidden flex flex-col h-[calc(100vh-140px)]">
+                        <div class="p-6 md:p-8 border-b border-cardBorder flex justify-between items-center bg-bgOffWhite/50 shrink-0">
+                            <div><h3 class="text-xl font-extrabold text-textDark">Cloud Database Records</h3></div>
+                            <div class="flex items-center gap-3 bg-white p-2 rounded-2xl border border-cardBorder">
+                                <i class="fas fa-calendar-alt text-brandBeige ml-2"></i>
+                                <input type="date" id="search-date" onchange="filterTableByDate()" class="bg-transparent border-none text-sm font-bold outline-none">
+                                <button onclick="clearSearch()" class="bg-red-50 text-red-500 px-4 py-2 rounded-xl text-xs font-bold">Clear</button>
+                            </div>
+                        </div>
+                        <div class="overflow-x-auto flex-1 p-2">
+                            <table class="w-full text-left border-collapse whitespace-nowrap">
+                                <thead><tr class="text-textMuted text-[10px] font-extrabold uppercase border-b-2 border-cardBorder bg-bgOffWhite"><th class="p-5 pl-8">Profile</th><th class="p-5">Contact</th><th class="p-5">Loan Details</th><th class="p-5">Pending</th><th class="p-5 text-center">Status</th><th class="p-5 text-center">Action</th></tr></thead>
+                                <tbody id="db-table-body" class="text-sm"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- 4. SETTINGS & SECURITY TAB -->
+                <section id="settings-tab" class="tab-section hidden fade-in max-w-3xl mx-auto">
+                    <div class="bg-bgWhite rounded-[2rem] shadow-sm border border-cardBorder p-8 mb-8">
+                        <h3 class="text-xl font-extrabold text-textDark mb-6 border-b border-cardBorder pb-4"><i class="fas fa-lock text-brandBeige mr-2"></i> App Security (PIN Lock)</h3>
+                        <p class="text-sm font-bold text-textMuted mb-4">Set a 4-digit PIN to lock this app on this device.</p>
+                        <div class="flex items-center gap-4 mb-6">
+                            <input type="password" id="new-pin" maxlength="4" placeholder="Enter 4-Digit PIN" class="bg-bgOffWhite border border-cardBorder rounded-xl p-4 font-extrabold tracking-widest outline-none w-48 text-center text-xl">
+                            <button onclick="setAppPIN()" class="bg-brandBeige text-white px-6 py-4 rounded-xl font-extrabold shadow-md hover:bg-brandBeigeDark transition">Set PIN</button>
+                        </div>
+                        <button onclick="removeAppPIN()" class="text-red-500 font-bold text-sm hover:underline"><i class="fas fa-trash-alt mr-1"></i> Remove existing PIN</button>
+                    </div>
+
+                    <div class="bg-bgWhite rounded-[2rem] shadow-sm border border-cardBorder p-8 border-t-4 border-t-red-500">
+                        <h3 class="text-xl font-extrabold text-textDark mb-2"><i class="fas fa-user-circle text-red-500 mr-2"></i> Manage Account</h3>
+                        <p class="text-sm font-bold text-textMuted mb-6">You are logged in via Google. Switch account or logout securely.</p>
+                        <button onclick="logout()" class="bg-red-50 text-red-600 border border-red-100 hover:bg-red-100 px-6 py-4 rounded-xl font-extrabold transition w-full md:w-auto"><i class="fas fa-sign-out-alt mr-2"></i> Logout / Switch Account</button>
+                    </div>
+                </section>
+            </div>
+        </main>
+    </div>
+
+    <!-- EMI TRACKER & DELETE MODAL -->
+    <div id="schedule-modal" class="fixed inset-0 z-[60] hidden flex items-center justify-center p-4">
+        <div class="absolute inset-0 bg-textDark/80 modal-backdrop" onclick="closeScheduleModal()"></div>
+        <div class="bg-bgWhite w-full max-w-2xl rounded-[2rem] shadow-2xl relative z-10 flex flex-col max-h-[90vh]">
+            <div class="p-6 border-b border-cardBorder bg-brandBeigeLight flex justify-between items-center shrink-0">
+                <div class="flex items-center gap-4"><img id="modal-client-img" src="" class="w-14 h-14 rounded-full border-2 border-brandBeige"><h3 class="text-xl font-extrabold" id="modal-client-name">Name</h3></div>
+                
+                <div class="flex items-center gap-2">
+                    <button onclick="deleteClient()" class="w-10 h-10 rounded-full bg-red-50 border border-red-100 text-red-500 hover:bg-red-500 hover:text-white transition-all flex items-center justify-center" title="Delete this Record completely"><i class="fas fa-trash-alt"></i></button>
+                    <button onclick="closeScheduleModal()" class="w-10 h-10 rounded-full bg-white border border-cardBorder hover:text-textDark flex items-center justify-center"><i class="fas fa-times text-lg"></i></button>
+                </div>
+            </div>
+            <div class="p-6 overflow-y-auto flex-1 bg-white">
+                <ul id="schedule-list" class="space-y-4"></ul>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // =======================================================
+        // BHAI, APNI REAL FIREBASE KEYS YAHAN PASTE KARNA HAI 👇🏻
+        // =======================================================
+                const firebaseConfig = {
+  apiKey: "AIzaSyAK71dCUKF9GwR-7cnUHBJUSqgYNhmMc8U",
+  authDomain: "easy-loan-24fff.firebaseapp.com",
+  projectId: "easy-loan-24fff",
+  storageBucket: "easy-loan-24fff.firebasestorage.app",
+  messagingSenderId: "1061934700444",
+  appId: "1:1061934700444:web:8868843afe4ff9cb191a59",
+  measurementId: "G-3YDRT0T0SD"
+};
+        // =======================================================
+if (!firebase.apps.length) { firebase.initializeApp(firebaseConfig); }
+        firebase.firestore().enablePersistence().catch(err => console.log("Offline mode error:", err));
+        
+        const db = firebase.firestore();
+        const auth = firebase.auth();
+        const provider = new firebase.auth.GoogleAuthProvider();
+        
+        let clientDB = [];
+        let currentUser = null;
+        let activeClientId = null; 
+        let isAppUnlocked = !localStorage.getItem('easyloan_pin'); 
+
+        function initSystem() {
+            if(!isAppUnlocked) {
+                document.getElementById('pin-lock-screen').classList.remove('hidden');
+                document.getElementById('pin-lock-screen').classList.add('flex');
+            } else {
+                checkAuthStatus();
+            }
+            document.getElementById('c-date').value = new Date().toISOString().split('T')[0];
+            updateClock();
+        }
+
+        function unlockApp() {
+            const entered = document.getElementById('pin-input').value;
+            const saved = localStorage.getItem('easyloan_pin');
+            if(entered === saved) {
+                isAppUnlocked = true;
+                document.getElementById('pin-lock-screen').classList.add('hidden');
+                document.getElementById('pin-lock-screen').classList.remove('flex');
+                checkAuthStatus();
+            } else {
+                showToast("Incorrect PIN!", "error");
+                document.getElementById('pin-input').value = '';
+            }
+        }
+
+        function setAppPIN() {
+            const pin = document.getElementById('new-pin').value;
+            if(pin.length === 4) {
+                localStorage.setItem('easyloan_pin', pin);
+                showToast("App PIN set successfully!");
+                document.getElementById('new-pin').value = '';
+            } else { alert("Please enter exactly 4 digits."); }
+        }
+
+        function removeAppPIN() { localStorage.removeItem('easyloan_pin'); showToast("App PIN removed."); }
+
+        const formatAmt = (num) => "₹ " + parseInt(num || 0).toLocaleString('en-IN');
+        const formatDate = (dateStr) => {
+            if(!dateStr) return 'N/A';
+            const [y, m, d] = dateStr.split('-');
+            return `${d} ${['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][parseInt(m)-1]} ${y}`;
+        };
+
+        const updateClock = () => { document.getElementById('real-time-clock').innerText = new Date().toLocaleTimeString('en-US', {hour12: true, hour: '2-digit', minute:'2-digit'}); };
+        setInterval(updateClock, 1000);
+
+        function showToast(message, type = 'success') {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            const color = type === 'success' ? 'bg-emerald-500' : 'bg-red-500';
+            toast.className = `${color} text-white px-6 py-4 rounded-xl shadow-2xl font-bold flex items-center gap-3 slide-in-right border border-white/20`;
+            toast.innerHTML = `<i class="fas ${type==='success'?'fa-check-circle':'fa-info-circle'} text-xl"></i> <span>${message}</span>`;
+            container.appendChild(toast);
+            setTimeout(() => { toast.style.opacity = '0'; toast.style.transform = 'translateX(100%)'; setTimeout(() => toast.remove(), 300); }, 3000);
+        }
+
+        function loginWithGoogle() { 
+            auth.signInWithPopup(provider).catch(error => {
+                alert("Login Failed: Please Ensure you have pasted REAL Firebase Keys in the code. Error: " + error.message);
+            }); 
+        }
+        
+        function logout() { auth.signOut().then(() => location.reload()); }
+
+        function checkAuthStatus() {
+            document.getElementById('login-screen').classList.remove('hidden');
+            auth.onAuthStateChanged(user => {
+                if (user) {
+                    currentUser = user;
+                    document.getElementById('login-screen').classList.add('hidden');
+                    document.getElementById('main-app').classList.remove('hidden');
+                    document.getElementById('main-app').classList.add('flex');
+                    document.getElementById('user-profile-img').src = user.photoURL || `https://ui-avatars.com/api/?name=${user.email}`;
+                    fetchCloudData();
+                } else {
+                    currentUser = null;
+                }
+            });
+        }
+
+        function fetchCloudData() {
+            db.collection("clients").where("adminId", "==", currentUser.uid).onSnapshot((querySnapshot) => {
+                clientDB = [];
+                querySnapshot.forEach((doc) => { clientDB.push(doc.data()); });
+                clientDB.sort((a,b) => b.id - a.id); 
+                refreshSystem();
+                document.getElementById('sync-status').innerHTML = `<i class="fas fa-check-circle"></i> Cloud Synced Live`;
+            }, (error) => {
+                document.getElementById('sync-status').innerHTML = `<i class="fas fa-wifi text-red-500"></i> Offline Mode Working`;
+            });
+        }
+
+        function switchTab(tabId) {
+            document.querySelectorAll('.tab-section').forEach(el => el.classList.add('hidden'));
+            document.querySelectorAll('.nav-btn').forEach(btn => btn.className = "nav-btn w-full flex items-center gap-4 p-4 text-textMuted hover:bg-bgOffWhite hover:text-textDark font-bold rounded-2xl transition-all border border-transparent");
+            document.getElementById(tabId).classList.remove('hidden');
+            const activeBtn = document.getElementById('nav-' + tabId);
+            activeBtn.className = "nav-btn w-full flex items-center gap-4 p-4 bg-brandBeige/15 text-brandBeigeDark font-bold rounded-2xl transition-all border border-brandBeige/30 shadow-sm";
+            if(window.innerWidth < 768 && !document.getElementById('sidebar').classList.contains('-translate-x-full')) toggleMenu();
+        }
+        function toggleMenu() { document.getElementById('sidebar').classList.toggle('-translate-x-full'); document.getElementById('mobile-overlay').classList.toggle('hidden'); }
+
+        function calculateEMI() {
+            const billing = parseFloat(document.getElementById('c-billing').value) || 0;
+            const downPayment = parseFloat(document.getElementById('c-downpayment').value) || 0;
+            const flatProfit = parseFloat(document.getElementById('c-filecharge').value) || 0; 
+            const tenure = parseInt(document.getElementById('c-tenure').value) || 1;
+
+            const principal = billing - downPayment;
+            document.getElementById('c-loan-raw').value = principal;
+            document.getElementById('c-loan').value = formatAmt(principal);
+
+            const totalPayable = principal + flatProfit;
+            const emi = Math.round(totalPayable / tenure);
+
+            document.getElementById('display-profit').innerText = formatAmt(flatProfit);
+            document.getElementById('display-total').innerText = formatAmt(totalPayable);
+            document.getElementById('display-emi').innerText = formatAmt(emi);
+            
+            document.getElementById('calculated-profit').value = flatProfit;
+            document.getElementById('calculated-total').value = totalPayable;
+        }
+        function processCustomer(e) {
+            e.preventDefault();
+            const principal = parseInt(document.getElementById('c-loan-raw').value) || 0;
+            const totalProfit = parseInt(document.getElementById('calculated-profit').value) || 0;
+            const totalPayable = parseInt(document.getElementById('calculated-total').value) || 0;
+            const tenure = parseInt(document.getElementById('c-tenure').value) || 1;
+            const emiAmount = Math.round(totalPayable / tenure);
+            const startDateStr = document.getElementById('c-date').value;
+            
+            let schedule = [];
+            let sDate = new Date(startDateStr);
+            for(let i=1; i<=tenure; i++) {
+                let nextDate = new Date(sDate);
+                nextDate.setMonth(nextDate.getMonth() + i);
+                schedule.push({ id: 'emi_' + Date.now() + '_' + i, date: nextDate.toISOString().split('T')[0], amount: emiAmount, status: 'Pending' });
+            }
+
+            const newClient = {
+                id: Date.now(),
+                adminId: currentUser.uid, 
+                name: document.getElementById('c-name').value,
+                phone: document.getElementById('c-phone').value,
+                address: document.getElementById('c-address').value,
+                startDate: startDateStr,
+                emiSchedule: schedule,
+                principal: principal,
+                profit: totalProfit,
+                totalPayable: totalPayable,
+                bakaya: totalPayable,
+                emi: emiAmount,
+                status: 'Active'
+            };
+
+            db.collection("clients").doc(newClient.id.toString()).set(newClient).then(() => {
+                showToast(`Cloud Saved: ${newClient.name}`);
+                document.getElementById('loan-setup-form').reset(); 
+                calculateEMI();
+                document.getElementById('c-date').value = new Date().toISOString().split('T')[0];
+                switchTab('all-loans');
+            }).catch(err => alert("Error saving: " + err.message));
+        }
+
+        function deleteClient() {
+            if(confirm("DANGER: Are you sure you want to permanently DELETE this record? This cannot be undone.")) {
+                db.collection("clients").doc(activeClientId.toString()).delete().then(() => {
+                    showToast("Record Deleted from Cloud Server!", "error");
+                    closeScheduleModal();
+                });
+            }
+        }
+
+        function payEMI(clientId, emiId) {
+            if(confirm("Confirm: Collect this EMI amount?")) {
+                let client = clientDB.find(c => c.id === clientId);
+                let emi = client.emiSchedule.find(e => e.id === emiId);
+                emi.status = 'Paid';
+                
+                const pendingEMIs = client.emiSchedule.filter(e => e.status === 'Pending');
+                client.bakaya = pendingEMIs.reduce((sum, e) => sum + e.amount, 0);
+                if(client.bakaya <= 0) { client.status = 'Settled'; client.bakaya = 0; }
+
+                db.collection("clients").doc(clientId.toString()).update({
+                    emiSchedule: client.emiSchedule, bakaya: client.bakaya, status: client.status
+                }).then(() => {
+                    showToast("Payment Synced to Cloud!");
+                    viewSchedule(clientId);
+                });
+            }
+        }
+
+        function refreshSystem() {
+            const todayStr = new Date().toISOString().split('T')[0];
+            let t_loan = 0, t_bakaya = 0, t_profit = 0, active_cases = 0, today_emi = 0, t_collected = 0;
+
+            clientDB.forEach(c => {
+                t_loan += c.principal; t_profit += c.profit; t_bakaya += c.bakaya;
+                c.emiSchedule.forEach(e => { if(e.status === 'Paid') t_collected += e.amount; });
+                if(c.status === 'Active') {
+                    active_cases++;
+                    c.emiSchedule.forEach(e => { if(e.date === todayStr && e.status === 'Pending') today_emi += e.amount; });
+                }
+            });
+
+            document.getElementById('stat-total-loan').innerText = formatAmt(t_loan);
+            document.getElementById('stat-bakaya').innerText = formatAmt(t_bakaya);
+            document.getElementById('stat-collected').innerText = formatAmt(t_collected);
+            document.getElementById('stat-profit').innerText = formatAmt(t_profit);
+            document.getElementById('stat-cases').innerText = active_cases;
+            document.getElementById('stat-aaj-emi').innerText = formatAmt(today_emi);
+            buildDatabaseTable(clientDB);
+        }
+
+        function filterTableByDate() {
+            const sDate = document.getElementById('search-date').value;
+            if(!sDate) return buildDatabaseTable(clientDB);
+            const filtered = clientDB.filter(c => c.startDate === sDate || c.emiSchedule.some(e => e.date === sDate));
+            buildDatabaseTable(filtered);
+        }
+        function clearSearch() { document.getElementById('search-date').value = ''; buildDatabaseTable(clientDB); }
+
+        function viewSchedule(id) {
+            activeClientId = id; 
+            const client = clientDB.find(c => c.id === id);
+            document.getElementById('modal-client-name').innerText = client.name;
+            document.getElementById('modal-client-img').src = `https://ui-avatars.com/api/?name=${client.name.replace(' ', '+')}&background=1a1a1a&color=d4af37&bold=true`;
+            
+            const list = document.getElementById('schedule-list');
+            list.innerHTML = '';
+
+            client.emiSchedule.forEach((emi, index) => {
+                const isPaid = emi.status === 'Paid';
+                const isToday = emi.date === new Date().toISOString().split('T')[0];
+                const li = document.createElement('li');
+                li.className = `p-4 rounded-2xl border-2 flex justify-between items-center ${isPaid ? 'bg-emerald-50/50 border-emerald-100 opacity-70' : isToday ? 'bg-brandBeigeLight border-brandBeige' : 'bg-white border-cardBorder'}`;
+                
+                li.innerHTML = `
+                    <div class="flex items-center gap-4">
+                        <div class="w-10 h-10 rounded-full ${isPaid ? 'bg-emerald-100 text-emerald-600' : 'bg-bgOffWhite border border-cardBorder text-textDark'} flex items-center justify-center font-extrabold text-sm">
+                            ${isPaid ? '<i class="fas fa-check"></i>' : (index + 1)}
+                        </div>
+                        <div><p class="font-extrabold ${isPaid ? 'text-emerald-700' : 'text-textDark'}">${formatDate(emi.date)}</p><p class="text-[10px] font-bold text-textMuted uppercase">${isPaid ? 'Payment Received' : 'Scheduled EMI'}</p></div>
+                    </div>
+                    <div class="text-right flex items-center gap-3">
+                        <p class="font-extrabold text-lg">${formatAmt(emi.amount)}</p>
+                        ${!isPaid && client.status === 'Active' ? `<button onclick="payEMI(${client.id}, '${emi.id}')" class="bg-brandBeige hover:bg-brandBeigeDark text-white px-4 py-2 rounded-xl text-xs font-bold">Pay</button>` : ''}
+                    </div>
+                `;
+                list.appendChild(li);
+            });
+            document.getElementById('schedule-modal').classList.remove('hidden');
+        }
+
+        function closeScheduleModal() { activeClientId = null; document.getElementById('schedule-modal').classList.add('hidden'); }
+
+        function buildDatabaseTable(dataArray) {
+            const tbody = document.getElementById('db-table-body');
+            tbody.innerHTML = '';
+            dataArray.forEach(c => {
+                const photo = `https://ui-avatars.com/api/?name=${c.name.replace(' ', '+')}&background=f3f4f6&color=1a1a1a&bold=true`;
+                const isActive = c.status === 'Active';
+                const tr = document.createElement('tr');
+                tr.className = `border-b border-cardBorder hover:bg-white transition-colors ${!isActive ? 'opacity-60 bg-gray-50/50' : ''}`;
+                tr.innerHTML = `
+                    <td class="p-5 pl-8"><div class="flex items-center gap-4"><img src="${photo}" class="w-12 h-12 rounded-full border-2 border-white shadow-sm"><div><p class="font-extrabold text-[15px]">${c.name}</p><p class="text-[10px] font-bold text-brandBeigeDark uppercase mt-0.5"><i class="fas fa-play-circle"></i> ${formatDate(c.startDate)}</p></div></div></td>
+                    <td class="p-5"><p class="font-bold text-sm"><i class="fas fa-phone-alt mr-2 text-brandBeige"></i>${c.phone}</p></td>
+                    <td class="p-5"><p class="font-extrabold text-[15px]">${formatAmt(c.principal)}</p><p class="text-[11px] font-extrabold text-emerald-600 mt-0.5">EMI: ${formatAmt(c.emi)}/mo</p></td>
+                    <td class="p-5"><span class="${isActive ? 'text-red-600 bg-red-50 border-red-100' : 'text-emerald-600 bg-emerald-50 border-emerald-100'} font-extrabold px-3 py-1.5 rounded-lg text-sm border inline-block shadow-sm">${formatAmt(c.bakaya)}</span></td>
+                    <td class="p-5 text-center"><span class="${isActive ? 'bg-brandBeige/10 text-brandBeigeDark border-brandBeige/20' : 'bg-gray-100 text-gray-500 border-gray-200'} px-4 py-1.5 rounded-full text-[10px] font-extrabold uppercase border">${c.status}</span></td>
+                    <td class="p-5 text-center"><button onclick="viewSchedule(${c.id})" class="bg-textDark hover:bg-black text-white px-5 py-2.5 rounded-xl text-xs font-bold transition-all shadow-md flex items-center justify-center gap-2 mx-auto w-full max-w-[140px]"><i class="fas fa-wallet text-brandBeige"></i> Tracker</button></td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function exportDataToExcel() {
+            if(clientDB.length === 0) return alert("Nothing to download!");
+            let csvContent = "data:text/csv;charset=utf-8,Client ID,Name,Phone,Address,Start Date,Principal Loan,Total Profit,Total Payable,Pending (Bakaya),Monthly EMI,Status\n";
+            clientDB.forEach(c => {
+                csvContent += [c.id, `"${c.name}"`, c.phone, `"${c.address||''}"`, c.startDate, c.principal, c.profit, c.totalPayable, c.bakaya, c.emi, c.status].join(",") + "\n";
+            });
+            const link = document.createElement("a");
+            link.href = encodeURI(csvContent);
+            link.download = `EasyLoan_CloudBackup_${new Date().toISOString().split('T')[0]}.csv`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+    </script>
+</body>
+</html>
